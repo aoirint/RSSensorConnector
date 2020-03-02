@@ -13,5 +13,5 @@ sudo docker-compose up
 
 ### Issue?
 - Failed to start service when RSSensorArduino device is not connected?
-  - Failed to start with `docker-compose up`.
+  - Failed to start with `docker-compose up`. And `restart: always` not working.
   - (Inspect) When it is auto-started with `docker-compose up -d`?
