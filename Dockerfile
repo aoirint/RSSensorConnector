@@ -1,7 +1,11 @@
-FROM python:3
+FROM python:3.8
 
-RUN mkdir /code
 WORKDIR /code
 
-ADD requirements.txt /code/
-RUN pip install -r requirements.txt
+ADD requirements.txt /tmp/
+RUN pip install -r /tmp/requirements.txt
+
+ADD code/ /code/
+
+CMD [ "python3", "SensorConnector.py" ]
+

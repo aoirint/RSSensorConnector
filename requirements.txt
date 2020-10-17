@@ -1,3 +1,6 @@
 requests
 pytz
 pyserial
+firebase-admin
+configargparse
+

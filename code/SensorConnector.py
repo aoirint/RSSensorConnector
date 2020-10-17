@@ -1,6 +1,5 @@
 import os
 
-import serial
 import time
 import json
 
@@ -8,31 +7,7 @@ import requests
 from datetime import datetime as dt
 from pytz import timezone
 
-DEBUG = os.environ.get('DEBUG') == '1'
-POST_WEB = os.environ.get('POST_WEB') == '1'
-POST_TEAMS = os.environ.get('POST_TEAMS') == '1'
-
-POST_INTERVAL = float(os.environ.get('POST_INTERVAL', 5*60))
-DOOR_POST_INTERVAL = float(os.environ.get('DOOR_POST_INTERVAL', 5))
-
-SERIAL_PORT = os.environ.get('SERIAL_PORT', '/dev/ttyACM0')
-# SERIAL_PORT = 'COM7'
-SERIAL_BAUDRATE = int(os.environ.get('SERIAL_BAUDRATE', 38400))
-
-WEB_API_TOKEN_ENDPOINT = os.environ.get('WEB_API_TOKEN_ENDPOINT')
-WEB_API_ENDPOINT = os.environ.get('WEB_API_ENDPOINT')
-WEB_AUTH_USER = os.environ.get('WEB_AUTH_USER')
-WEB_AUTH_PASSWORD = os.environ.get('WEB_AUTH_PASSWORD')
-if WEB_API_TOKEN_ENDPOINT is None or WEB_API_ENDPOINT is None:
-    print('API URL not provided')
-    POST_WEB = False
-
-TEAMS_INCOMING_WEBHOOK_URL = os.environ.get('TEAMS_INCOMING_WEBHOOK_URL')
-if TEAMS_INCOMING_WEBHOOK_URL is None:
-    print('Teams incoming webhook URL not provided')
-    POST_TEAMS = False
-
-TIMEZONE = os.environ.get('TIMEZONE', 'Asia/Tokyo')
+from .SensorConnectorConfig import parse_config
 
 COOKIES = None
 TOKEN = None
@@ -69,44 +44,34 @@ def post2teams(data):
 
 
 if __name__ == '__main__':
+    config = parse_config()
+    # TODO:
+
     prepare_token()
 
-    ser = serial.Serial(SERIAL_PORT, SERIAL_BAUDRATE)
-    time.sleep(3) # wait for connecton established
+    ser = SensorSerial(port=SERIAL_PORT, baudrate=baudrate)
+
+    print('# start')
+    lastPost = 0
+    lastDoorPost = 0
 
     try:
-        print('# start')
-        lastPost = 0
-        lastDoorPost = 0
-
-        while True:
-            line = ser.readline()
+        for sensor_data in ser.read_json():
             now = time.time()
 
-            #print(line)
-            try:
-                line = line.decode('ascii').strip()
-            except UnicodeDecodeError:
-                continue
+            msg_type = sensor_data.get('type')
 
-            try:
-                serialData = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-
-            msgType = serialData.get('type')
-
-            if msgType == 'sensor':
+            if msg_type == 'sensor':
                 elapsed = now - lastPost
                 if elapsed < POST_INTERVAL:
                     continue
 
-                light = serialData.get('light')
-                temperature = serialData.get('temperature')
+                light = sensor_data.get('light')
+                temperature = sensor_data.get('temperature')
                 if light is None or temperature is None:
                     continue
 
-                print(serialData)
+                print(sensor_data)
 
                 if POST_WEB:
                     timestamp = now_aware().isoformat()
@@ -132,16 +97,16 @@ if __name__ == '__main__':
 
                 lastPost = now
 
-            elif msgType == 'doorSensor':
+            elif msg_type == 'doorSensor':
                 elapsed = now - lastDoorPost
                 if elapsed < DOOR_POST_INTERVAL:
                     continue
 
-                doorState = serialData.get('doorState')
+                doorState = sensor_data.get('doorState')
                 if doorState is None:
                     continue
 
-                print(serialData)
+                print(sensor_data)
 
                 if POST_TEAMS:
                     timestamp = now_aware()
